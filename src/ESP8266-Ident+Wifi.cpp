@@ -12,8 +12,9 @@ __asm volatile("nop");
 
 #include "Arduino.h"
 #include "Esp.h"
-#include "ESP8266WiFi.h"
+#include <ESP8266WiFi.h>
 #include "FS.h"
+#include <Board_Identify.h>
 
 void printHex(int num, int precision, bool NewLine)
 {
@@ -33,63 +34,89 @@ void printHex(int num, int precision, bool NewLine)
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(74880);
 
   // Set WiFi to station mode and disconnect from an AP if it was previously connected
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   delay(100);
   Serial.println();
-  Serial.println("Wifi-Setup done");
+  Serial.println("\r\nWifi-Setup done");
 
   pinMode(LED_BUILTIN, OUTPUT);
 
   //ADC_MODE(ADC_VCC);
+  Serial.print(F("Board Identification\r\n"));
+  Serial.print(F("Board Type: "));
+  Serial.println(BoardIdentify::type);
+  Serial.print(F("Board Make: "));
+  Serial.println(BoardIdentify::make);
+  Serial.print(F("Board Model: "));
+  Serial.println(BoardIdentify::model);
+  Serial.print(F("Board MCU: "));
+  Serial.println(BoardIdentify::mcu);
 
   Serial.println("\r\nCPU Information");
-  Serial.print("Chip-IP          : ");
+  Serial.print("Chip-IP            : ");
   printHex(ESP.getChipId(), 8, true);
-  Serial.print("SDK-Version      : ");
+  Serial.print("Core-Version       : ");
   Serial.println(ESP.getCoreVersion());
-  Serial.print("Core-Clock  (MHz): ");
+  Serial.print("SDK-Version        : ");
+  Serial.println(ESP.getSdkVersion());
+  Serial.print("Core-Clock  (MHz)  : ");
   Serial.println(ESP.getCpuFreqMHz());
 
+  // some very basic benchmarking
   uint32_t before, after;
+  Serial.print("Cycles per ms delay: ");
   before = ESP.getCycleCount();
   delayMicroseconds(1000);
   after = ESP.getCycleCount();
-  Serial.print("Cycles/ms delay  : ");
   Serial.println(abs(after - before));
+  Serial.print("Estimated Core-Clk : ");
+  Serial.print(int(abs((after - before)/1000)));
+  Serial.println(" MHz\r\n");
 
+  Serial.print("Math-Benchmark (");
   float a = 0.0f;
   float b = PI;
+  const int cmax = 5000;
+  Serial.print(cmax);
   before = ESP.getCycleCount();
-  for (int cnt = 0; cnt < 99; cnt++)
+  Serial.println(" Iterations)");
+  for (int cnt = 0; cnt < 5000; cnt++)
   {
     a = sqrt(b);
     b = a * (float)cnt;
+    a = b / log2((float)cnt);
   }
   after = ESP.getCycleCount();
-  Serial.print("Cycles (100SQRT*): ");
+  Serial.print("Bench Clock Cycles : ");
   Serial.println(abs(after - before));
+  Serial.print("µs / Iteration     : ");
+  Serial.println((float)abs(after - before)/(float)cmax/(float)ESP.getCpuFreqMHz());
 
   Serial.println("\r\nMEMORY Information");
-  Serial.print("Flash-ID         : ");
+  Serial.print("Flash-ID           : ");
   printHex(ESP.getFlashChipId(), 8, true);
-  Serial.print("Flash-Size (real): ");
+  Serial.print("Flash-Size (real)  : ");
   Serial.println(ESP.getFlashChipRealSize());
-  Serial.print("Flash-Size  (SDK): ");
+  Serial.print("Flash-Size  (SDK)  : ");
   Serial.println(ESP.getFlashChipSize());
-  Serial.print("Flash-Speed (MHz): ");
+  Serial.print("Flash-Speed (MHz)  : ");
   Serial.println(ESP.getFlashChipSpeed() / 1000000);
-  Serial.print("Sketch-Size      : ");
+  Serial.print("Sketch-Size        : ");
   Serial.println(ESP.getSketchSize());
-  Serial.print("Sketch-Free      : ");
+  Serial.print("Sketch-Free        : ");
   Serial.println(ESP.getFreeSketchSpace());
-  Serial.print("Sketch-MD5       : ");
+  Serial.print("Sketch-MD5         : ");
   Serial.println(ESP.getSketchMD5());
-  Serial.print("Free Heap Space  : ");
+  Serial.print("Free Heap Space    : ");
   Serial.println(ESP.getFreeHeap());
+  Serial.print("Heap Fragmentation : ");
+  Serial.println(ESP.getHeapFragmentation());
+  Serial.print("Free Max Heap Block: ");
+  Serial.println(ESP.getMaxFreeBlockSize());
 
   //http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html#uploading-files-to-file-system
   //Activate SPI file system
@@ -97,19 +124,19 @@ void setup()
   Serial.println("\r\nFile system Information");
   FSInfo fs_info;
   SPIFFS.info(fs_info);
-  Serial.print("Total Size       : ");
+  Serial.print("Total Size         : ");
   Serial.println(fs_info.totalBytes);
-  Serial.print("Used Bytes       : ");
+  Serial.print("Used Bytes         : ");
   Serial.println(fs_info.usedBytes);
-  Serial.print("Used Percent     : ");
+  Serial.print("Used Percent       : ");
   Serial.println((float)(fs_info.usedBytes * 100 / fs_info.totalBytes));
-  Serial.print("Block Size       : ");
+  Serial.print("Block Size         : ");
   Serial.println(fs_info.blockSize);
-  Serial.print("Page Size        : ");
+  Serial.print("Page Size          : ");
   Serial.println(fs_info.pageSize);
-  Serial.print("MaxOpenFile      : ");
+  Serial.print("MaxOpenFile        : ");
   Serial.println(fs_info.maxOpenFiles);
-  Serial.print("MaxPathLength    : ");
+  Serial.print("MaxPathLength      : ");
   Serial.println(fs_info.maxPathLength);
 
   Serial.println("\r\nFile system Content");
@@ -233,5 +260,5 @@ void loop()
   digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
 
   // Wait a bit before scanning again
-  delay(5000);
+  delay(10000);
 }
